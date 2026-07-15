@@ -18,7 +18,7 @@
   --text:#e8eaee; --text-dim:#9aa1b0; --text-faint:#6b7180;
   --border:#2a2f3d; --border-soft:#20242f;
   --accent:#5eead4; --accent-strong:#2dd4bf; --accent-ink:#04201b;
-  --accent2:#818cf8; --danger:#f87171; --star:#fbbf24;
+  --accent2:#818cf8; --danger:#f87171; --star:#fbbf24; --attend:#34d399;
   --shadow:0 10px 30px -10px rgba(0,0,0,.55);
   --scrollbar:#333847;
 }
@@ -27,7 +27,7 @@
   --text:#171a20; --text-dim:#565d6b; --text-faint:#868d99;
   --border:#e1e4ea; --border-soft:#ececf1;
   --accent:#0d9488; --accent-strong:#0f766e; --accent-ink:#ffffff;
-  --accent2:#4f46e5; --danger:#dc2626; --star:#d97706;
+  --accent2:#4f46e5; --danger:#dc2626; --star:#d97706; --attend:#059669;
   --shadow:0 10px 30px -12px rgba(20,20,30,.15);
   --scrollbar:#d6d9e0;
 }
@@ -163,11 +163,13 @@ main{flex:1;padding:20px;max-width:1280px;width:100%;margin:0 auto;}
   font-size:.68rem;color:var(--accent2);margin-top:3px;overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap;
 }
-.cal-star-btn{
-  position:absolute;top:2px;right:3px;background:none;border:none;cursor:pointer;
-  color:var(--text-faint);font-size:.9rem;padding:3px;line-height:1;z-index:4;
+.cal-actions{position:absolute;top:2px;right:3px;display:flex;gap:1px;z-index:4;}
+.cal-star-btn, .cal-attend-btn{
+  background:none;border:none;cursor:pointer;
+  color:var(--text-faint);font-size:.9rem;padding:3px;line-height:1;
 }
 .cal-star-btn.active{color:var(--star);}
+.cal-attend-btn.active{color:var(--attend);}
 .cal-now-line{position:absolute;left:0;right:0;height:0;border-top:2px solid var(--danger);z-index:5;pointer-events:none;}
 .cal-now-dot{position:absolute;left:-4px;top:-5px;width:10px;height:10px;border-radius:50%;background:var(--danger);}
 .cal-now-label{
@@ -210,11 +212,13 @@ main{flex:1;padding:20px;max-width:1280px;width:100%;margin:0 auto;}
 :root[data-theme="light"] .badge.fmt-social{background:#cffafe;color:#0e7490;}
 :root[data-theme="light"] .badge.fmt-discussion{background:#dbeafe;color:#1e40af;}
 
-.star-btn{
-  margin-left:auto;background:none;border:none;cursor:pointer;font-size:1.15rem;
+.card-actions{margin-left:auto;display:flex;gap:2px;align-items:center;}
+.star-btn, .attend-btn{
+  background:none;border:none;cursor:pointer;font-size:1.15rem;
   color:var(--text-faint);line-height:1;padding:2px;
 }
 .star-btn.active{color:var(--star);}
+.attend-btn.active{color:var(--attend);}
 .card-title{margin:0;font-size:1rem;font-weight:700;line-height:1.35;}
 .card-speakers{color:var(--accent2);font-size:.82rem;font-weight:600;}
 .card-summary{color:var(--text-dim);font-size:.87rem;line-height:1.5;margin:0;flex:1;}
@@ -294,12 +298,13 @@ main{flex:1;padding:20px;max-width:1280px;width:100%;margin:0 auto;}
 }
 .modal-body .bio-block h4{margin:0 0 8px;font-size:.82rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text-faint);}
 .modal-footer{display:flex;gap:10px;margin-top:18px;padding-top:16px;border-top:1px solid var(--border-soft);}
-.modal-star-btn{
+.modal-star-btn, .modal-attend-btn{
   background:var(--surface-2);border:1px solid var(--border);color:var(--text);
   padding:9px 16px;border-radius:10px;cursor:pointer;font-weight:700;font-size:.86rem;
   display:flex;align-items:center;gap:6px;
 }
 .modal-star-btn.active{color:var(--star);border-color:var(--star);}
+.modal-attend-btn.active{color:var(--attend);border-color:var(--attend);}
 
 .toast{
   position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
@@ -359,6 +364,7 @@ main{flex:1;padding:20px;max-width:1280px;width:100%;margin:0 auto;}
       <button class="tab" data-view="timeline">Timeline</button>
       <button class="tab" data-view="speakers">Speakers</button>
       <button class="tab" data-view="starred">Starred <span class="count-badge" id="starCount">0</span></button>
+      <button class="tab" data-view="attending">Attending <span class="count-badge" id="attendCount">0</span></button>
       <button class="tab" data-view="recommended">Recommended</button>
     </nav>
     <div class="topbar-actions">
@@ -396,6 +402,7 @@ var FMT_LABELS = {
 
 /* ---------- Storage ---------- */
 var LS_FAV = 'ep2026_favorites';
+var LS_ATTEND = 'ep2026_attending';
 var LS_THEME = 'ep2026_theme';
 
 function getFavorites(){
@@ -418,6 +425,28 @@ function updateStarCount(){
   if (el) el.textContent = getFavorites().length;
 }
 
+// "Attending" is a second, independent mark — separate from starring —
+// for talks the person has actually decided to go to.
+function getAttending(){
+  try { return JSON.parse(localStorage.getItem(LS_ATTEND)) || []; }
+  catch(e){ return []; }
+}
+function setAttending(arr){
+  try { localStorage.setItem(LS_ATTEND, JSON.stringify(arr)); } catch(e){}
+}
+function isAttending(id){ return getAttending().indexOf(id) !== -1; }
+function toggleAttending(id){
+  var arr = getAttending();
+  var i = arr.indexOf(id);
+  if (i === -1) arr.push(id); else arr.splice(i,1);
+  setAttending(arr);
+  updateAttendCount();
+}
+function updateAttendCount(){
+  var el = document.getElementById('attendCount');
+  if (el) el.textContent = getAttending().length;
+}
+
 function getTheme(){
   return localStorage.getItem(LS_THEME) || 'dark';
 }
@@ -437,6 +466,7 @@ var state = {
   format: 'all',
   room: 'all',
   favoritesOnly: false,
+  attendingOnly: false,
   sort: 'schedule',
   selectedSpeaker: null,
   filtersOpen: false
@@ -526,12 +556,14 @@ function matchesQuery(t, q){
 
 function getFilteredTalks(){
   var favIds = getFavorites();
+  var attendIds = getAttending();
   return TALKS.filter(function(t){
     if (state.day !== 'all' && String(t.day) !== String(state.day)) return false;
     if (state.level !== 'all' && t.level !== state.level) return false;
     if (state.format !== 'all' && t.format !== state.format) return false;
     if (state.room !== 'all' && t.room !== state.room) return false;
     if (state.favoritesOnly && favIds.indexOf(t.id) === -1) return false;
+    if (state.attendingOnly && attendIds.indexOf(t.id) === -1) return false;
     if (!matchesQuery(t, state.query)) return false;
     return true;
   });
@@ -564,13 +596,17 @@ function badgeHtml(t){
 function cardHtml(t, opts){
   opts = opts || {};
   var fav = isFavorite(t.id);
+  var attend = isAttending(t.id);
   var speakersStr = t.speakers.length ? escapeHtml(t.speakers.join(', ')) : '';
   var reasonHtml = opts.reason ? '<div class="reco-reason">✨ ' + escapeHtml(opts.reason) + '</div>' : '';
   var extraClass = opts.extraClass ? (' ' + opts.extraClass) : '';
   return (
     '<article class="card' + extraClass + '" data-id="' + t.id + '">' +
       '<div class="card-top">' + badgeHtml(t) +
-        '<button class="star-btn' + (fav?' active':'') + '" data-star="' + t.id + '" title="Star this talk">' + (fav ? '★' : '☆') + '</button>' +
+        '<div class="card-actions">' +
+          '<button class="attend-btn' + (attend?' active':'') + '" data-attend="' + t.id + '" title="Mark as attending">' + (attend ? '☑' : '☐') + '</button>' +
+          '<button class="star-btn' + (fav?' active':'') + '" data-star="' + t.id + '" title="Star this talk">' + (fav ? '★' : '☆') + '</button>' +
+        '</div>' +
       '</div>' +
       '<h3 class="card-title">' + escapeHtml(t.title) + '</h3>' +
       (speakersStr ? '<div class="card-speakers">' + speakersStr + '</div>' : '') +
@@ -740,11 +776,15 @@ function calendarGridHtml(dayMeta, layout){
     var height = Math.max(CAL_MIN_EVENT_H, (p.end - p.start) * CAL_PX_PER_MIN);
     var left = CAL_GUTTER_W + colIdx * CAL_COL_W;
     var fav = isFavorite(t.id);
+    var attend = isAttending(t.id);
     var timeLabel = layout.hasRealTimes ? (t.time || '') : (parseDurationMinutes(t) + ' min');
     var speakersHtml = t.speakers.length ? '<div class="cal-event-speakers">' + escapeHtml(t.speakers.join(', ')) + '</div>' : '';
     return '<div class="cal-event fmt-' + t.format + '" data-id="' + t.id + '" ' +
       'style="top:' + top + 'px;height:' + height + 'px;left:' + left + 'px;width:' + (CAL_COL_W - 6) + 'px;">' +
-      '<button class="cal-star-btn' + (fav?' active':'') + '" data-star="' + t.id + '" title="Star this talk">' + (fav?'★':'☆') + '</button>' +
+      '<div class="cal-actions">' +
+        '<button class="cal-attend-btn' + (attend?' active':'') + '" data-attend="' + t.id + '" title="Mark as attending">' + (attend?'☑':'☐') + '</button>' +
+        '<button class="cal-star-btn' + (fav?' active':'') + '" data-star="' + t.id + '" title="Star this talk">' + (fav?'★':'☆') + '</button>' +
+      '</div>' +
       '<div class="cal-event-time">' + escapeHtml(timeLabel) + '</div>' +
       '<div class="cal-event-title">' + escapeHtml(t.title) + '</div>' +
       speakersHtml +
@@ -817,6 +857,25 @@ function renderStarred(){
   document.getElementById('mainContent').innerHTML = html;
 }
 
+function renderAttending(){
+  var attendIds = getAttending();
+  var attendTalks = sortTalks(TALKS.filter(function(t){ return attendIds.indexOf(t.id) !== -1 && matchesQuery(t, state.query); }));
+  var html = '<div class="starred-header">' +
+      '<div><h2 class="section-title">☑ Talks you\'re attending</h2>' +
+      '<p class="section-sub">A second, independent mark from starring — for talks you\'ve actually decided to go to. Saved locally on this device.</p></div>' +
+      '<div class="starred-actions">' +
+        '<button class="clear-filters" data-action="export-favorites">⬇ Copy to clipboard</button>' +
+        '<button class="clear-filters" data-action="import-favorites">⬆ Import from clipboard</button>' +
+      '</div>' +
+    '</div>';
+  if (!attendTalks.length){
+    html += '<div class="empty-state"><div class="big">☑</div>Nothing marked as attending yet.<br>Click the checkbox on any talk to add it here, or import a previously copied list.</div>';
+  } else {
+    html += gridHtml(attendTalks);
+  }
+  document.getElementById('mainContent').innerHTML = html;
+}
+
 /* ---------- Export / Import favorites ---------- */
 function showToast(msg, isError){
   var old = document.querySelector('.toast');
@@ -830,21 +889,27 @@ function showToast(msg, isError){
 
 function exportFavorites(){
   var favIds = getFavorites();
-  if (!favIds.length){
-    showToast('No starred talks to export yet.', true);
+  var attendIds = getAttending();
+  if (!favIds.length && !attendIds.length){
+    showToast('Nothing starred or marked as attending yet.', true);
     return;
   }
-  var favTalks = favIds.map(function(id){ return TALK_BY_ID[id]; }).filter(Boolean);
+  var allIds = Array.from(new Set(favIds.concat(attendIds)));
+  var allTalks = allIds.map(function(id){ return TALK_BY_ID[id]; }).filter(Boolean);
   var payload = {
     app: 'europython-2026-guide',
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     favorites: favIds,
-    talks: favTalks.map(function(t){ return {id:t.id, title:t.title, day:t.dayName}; })
+    attending: attendIds,
+    talks: allTalks.map(function(t){ return {id:t.id, title:t.title, day:t.dayName}; })
   };
   var text = JSON.stringify(payload);
+  var parts = [];
+  if (favIds.length) parts.push(favIds.length + ' starred');
+  if (attendIds.length) parts.push(attendIds.length + ' attending');
   copyTextToClipboard(text).then(function(){
-    showToast('Copied ' + favIds.length + ' starred talk' + (favIds.length===1?'':'s') + ' to clipboard.');
+    showToast('Copied ' + parts.join(' and ') + ' talk' + ((favIds.length+attendIds.length)===1?'':'s') + ' to clipboard.');
   }).catch(function(){
     showToast('Could not access the clipboard.', true);
   });
@@ -870,34 +935,51 @@ function triggerImport(){
   handleImportFromClipboard();
 }
 
-function applyImportedFavorites(clipText){
+function mergeIdList(existing, incoming){
+  var valid = incoming.filter(function(id){ return typeof id === 'string' && TALK_BY_ID[id]; });
+  var unknown = incoming.length - valid.length;
+  var added = valid.filter(function(id){ return existing.indexOf(id) === -1; });
+  return {merged: existing.concat(added), addedCount: added.length, unknownCount: unknown};
+}
+
+function applyImportedData(clipText){
   var parsed;
   try { parsed = JSON.parse(clipText); }
   catch(e){ showToast('Clipboard does not contain valid JSON.', true); return; }
 
-  var incoming;
-  if (Array.isArray(parsed)) incoming = parsed;
-  else if (parsed && Array.isArray(parsed.favorites)) incoming = parsed.favorites;
-  else { showToast('Could not find a favorites list in the clipboard.', true); return; }
+  var favIncoming, attendIncoming;
+  if (Array.isArray(parsed)){
+    // Backwards compatible: a bare array is treated as a favorites list.
+    favIncoming = parsed;
+    attendIncoming = [];
+  } else if (parsed && (Array.isArray(parsed.favorites) || Array.isArray(parsed.attending))){
+    favIncoming = Array.isArray(parsed.favorites) ? parsed.favorites : [];
+    attendIncoming = Array.isArray(parsed.attending) ? parsed.attending : [];
+  } else {
+    showToast('Could not find a favorites/attending list in the clipboard.', true);
+    return;
+  }
 
-  var valid = incoming.filter(function(id){ return typeof id === 'string' && TALK_BY_ID[id]; });
-  var unknown = incoming.length - valid.length;
-  var existing = getFavorites();
-  var added = valid.filter(function(id){ return existing.indexOf(id) === -1; });
-  var merged = existing.concat(added);
-  setFavorites(merged);
+  var favResult = mergeIdList(getFavorites(), favIncoming);
+  setFavorites(favResult.merged);
+  var attendResult = mergeIdList(getAttending(), attendIncoming);
+  setAttending(attendResult.merged);
 
-  var msg = 'Imported ' + added.length + ' new talk' + (added.length===1?'':'s') +
-    (unknown ? (' (' + unknown + ' unrecognized entr' + (unknown===1?'y':'ies') + ' skipped)') : '') +
-    '.';
-  showToast(msg, added.length === 0 && unknown > 0);
+  var addedTotal = favResult.addedCount + attendResult.addedCount;
+  var unknownTotal = favResult.unknownCount + attendResult.unknownCount;
+  var parts = [];
+  if (favResult.addedCount) parts.push(favResult.addedCount + ' starred');
+  if (attendResult.addedCount) parts.push(attendResult.addedCount + ' attending');
+  var msg = parts.length ? ('Imported ' + parts.join(' and ') + ' talk' + (addedTotal===1?'':'s')) : 'Nothing new to import';
+  msg += (unknownTotal ? (' (' + unknownTotal + ' unrecognized entr' + (unknownTotal===1?'y':'ies') + ' skipped)') : '') + '.';
+  showToast(msg, addedTotal === 0 && unknownTotal > 0);
   render();
 }
 
 function handleImportFromClipboard(){
   if (navigator.clipboard && navigator.clipboard.readText){
     navigator.clipboard.readText().then(function(clipText){
-      applyImportedFavorites(clipText);
+      applyImportedData(clipText);
     }).catch(function(){
       showToast('Could not read the clipboard. Your browser may need permission — try pasting manually.', true);
     });
@@ -999,6 +1081,7 @@ function openModal(id){
   var t = TALK_BY_ID[id];
   if (!t) return;
   var fav = isFavorite(id);
+  var attend = isAttending(id);
   var speakerChips = t.speakers.length ? '<div class="modal-speakers">' + t.speakers.map(function(s){
     var norm = normalizeSpeaker(s);
     return SPEAKERS[norm] ? '<span class="speaker-chip" data-speaker="' + escapeHtml(norm) + '">' + escapeHtml(s) + '</span>' : '<span class="speaker-chip" style="cursor:default">' + escapeHtml(s) + '</span>';
@@ -1014,6 +1097,7 @@ function openModal(id){
         '<div class="modal-body">' + renderMarkdown(t.description) + bioHtml + '</div>' +
         '<div class="modal-footer">' +
           '<button class="modal-star-btn' + (fav?' active':'') + '" id="modalStarBtn" data-id="' + id + '">' + (fav ? '★ Starred' : '☆ Star this talk') + '</button>' +
+          '<button class="modal-attend-btn' + (attend?' active':'') + '" id="modalAttendBtn" data-id="' + id + '">' + (attend ? '☑ Attending' : '☐ Mark as attending') + '</button>' +
         '</div>' +
       '</div>' +
     '</div>';
@@ -1039,6 +1123,7 @@ function countActiveFilters(){
   if (state.format !== 'all') n++;
   if (state.room !== 'all') n++;
   if (state.favoritesOnly) n++;
+  if (state.attendingOnly) n++;
   return n;
 }
 
@@ -1083,6 +1168,7 @@ function renderFilterBar(){
           '</select>'
         ) +
         '<label class="chip-toggle"><input type="checkbox" id="fFavOnly"> ⭐ Favorites only</label>' +
+        '<label class="chip-toggle"><input type="checkbox" id="fAttendOnly"> ☑ Attending only</label>' +
         '<div class="filter-spacer"></div>' +
         '<button class="clear-filters" id="clearFilters">Clear filters</button>' +
       '</div>';
@@ -1093,6 +1179,7 @@ function renderFilterBar(){
     document.getElementById('fRoom').value = state.room;
     if (document.getElementById('fSort')) document.getElementById('fSort').value = state.sort;
     document.getElementById('fFavOnly').checked = state.favoritesOnly;
+    document.getElementById('fAttendOnly').checked = state.attendingOnly;
 
     document.getElementById('fDay').onchange = function(e){ state.day = e.target.value; render(); };
     document.getElementById('fLevel').onchange = function(e){ state.level = e.target.value; render(); };
@@ -1100,9 +1187,10 @@ function renderFilterBar(){
     document.getElementById('fRoom').onchange = function(e){ state.room = e.target.value; render(); };
     if (document.getElementById('fSort')) document.getElementById('fSort').onchange = function(e){ state.sort = e.target.value; render(); };
     document.getElementById('fFavOnly').onchange = function(e){ state.favoritesOnly = e.target.checked; render(); };
+    document.getElementById('fAttendOnly').onchange = function(e){ state.attendingOnly = e.target.checked; render(); };
     document.getElementById('clearFilters').onclick = function(){
       state.day='all'; state.level='all'; state.format='all'; state.room='all';
-      state.favoritesOnly=false; state.sort='schedule'; state.query='';
+      state.favoritesOnly=false; state.attendingOnly=false; state.sort='schedule'; state.query='';
       document.getElementById('searchInput').value='';
       render();
     };
@@ -1124,10 +1212,12 @@ function render(){
   });
   renderFilterBar();
   updateStarCount();
+  updateAttendCount();
 
   if (state.view === 'overview') renderOverview();
   else if (state.view === 'timeline') renderTimeline();
   else if (state.view === 'starred') renderStarred();
+  else if (state.view === 'attending') renderAttending();
   else if (state.view === 'recommended') renderRecommended();
   else if (state.view === 'speakers'){
     if (state.selectedSpeaker) renderSpeakerDetail(state.selectedSpeaker);
@@ -1165,6 +1255,13 @@ document.getElementById('mainContent').addEventListener('click', function(e){
   if (starBtn){
     e.stopPropagation();
     toggleFavorite(starBtn.dataset.star);
+    render();
+    return;
+  }
+  var attendBtn = e.target.closest('[data-attend]');
+  if (attendBtn){
+    e.stopPropagation();
+    toggleAttending(attendBtn.dataset.attend);
     render();
     return;
   }
@@ -1211,6 +1308,16 @@ document.getElementById('modalRoot').addEventListener('click', function(e){
     render();
     return;
   }
+  var attendBtn = e.target.closest('#modalAttendBtn');
+  if (attendBtn){
+    toggleAttending(attendBtn.dataset.id);
+    var t2 = TALK_BY_ID[attendBtn.dataset.id];
+    var attend = isAttending(t2.id);
+    attendBtn.classList.toggle('active', attend);
+    attendBtn.textContent = attend ? '☑ Attending' : '☐ Mark as attending';
+    render();
+    return;
+  }
   var chip = e.target.closest('.speaker-chip[data-speaker]');
   if (chip){
     closeModal();
@@ -1227,6 +1334,7 @@ document.addEventListener('keydown', function(e){
 /* ---------- Init ---------- */
 setTheme(getTheme());
 updateStarCount();
+updateAttendCount();
 render();
 
 })();
