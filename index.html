@@ -83,10 +83,12 @@ button{font-family:inherit;}
 .icon-btn:hover{background:var(--surface-3);}
 
 .filterbar{
-  display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  display:flex;flex-wrap:wrap;align-items:center;
   padding:12px 20px;border-bottom:1px solid var(--border-soft);
   background:var(--bg);position:sticky;top:61px;z-index:20;
 }
+.filter-toggle-btn{display:none;}
+.filter-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex:1;}
 .filterbar select, .filterbar .chip-toggle{
   background:var(--surface-2);border:1px solid var(--border);color:var(--text);
   padding:7px 10px;border-radius:8px;font-size:.84rem;cursor:pointer;outline:none;
@@ -172,10 +174,6 @@ main{flex:1;padding:20px;max-width:1280px;width:100%;margin:0 auto;}
   position:absolute;left:9px;top:-9px;font-size:.64rem;font-weight:700;color:#fff;
   background:var(--danger);padding:1px 5px;border-radius:4px;white-space:nowrap;
 }
-@media (max-width:640px){
-  .cal-col-header{font-size:.66rem;}
-}
-
 .card{
   background:var(--surface);border:1px solid var(--border);border-radius:14px;
   padding:16px;cursor:pointer;transition:.15s;display:flex;flex-direction:column;gap:8px;
@@ -313,10 +311,42 @@ main{flex:1;padding:20px;max-width:1280px;width:100%;margin:0 auto;}
 @keyframes toastIn{from{opacity:0;transform:translate(-50%,8px);}to{opacity:1;transform:translate(-50%,0);}}
 
 @media (max-width:640px){
-  .topbar{padding:10px 12px;}
+  .topbar{padding:8px 12px;row-gap:6px;}
+  .brand{font-size:1.02rem;}
+  .tabs{
+    order:2;width:100%;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;
+    scrollbar-width:none;margin:0 -12px;padding:0 12px 2px;
+  }
+  .tabs::-webkit-scrollbar{display:none;}
+  .tab{flex-shrink:0;padding:7px 11px;font-size:.84rem;}
+  .topbar-actions{order:3;width:100%;margin-left:0;}
   #searchInput{min-width:0;flex:1;}
+  .icon-btn{width:34px;height:34px;font-size:.95rem;flex-shrink:0;}
   main{padding:14px;}
-  .filterbar{padding:10px 12px;position:static;}
+
+  .filterbar{padding:8px 12px;position:static;flex-wrap:wrap;}
+  .filter-toggle-btn{
+    display:flex;align-items:center;justify-content:space-between;width:100%;
+    background:var(--surface-2);border:1px solid var(--border);color:var(--text);
+    padding:9px 12px;border-radius:8px;font-size:.85rem;font-weight:600;cursor:pointer;
+  }
+  .filter-toggle-btn .chev{color:var(--text-faint);transition:transform .15s;}
+  .filter-toggle-btn.open .chev{transform:rotate(180deg);}
+  .filter-count-badge{
+    background:var(--accent);color:var(--accent-ink);border-radius:999px;
+    padding:1px 8px;font-size:.72rem;font-weight:700;margin-left:8px;
+  }
+  .filter-controls{
+    display:none;flex-direction:column;align-items:stretch;gap:8px;
+    margin-top:8px;width:100%;
+  }
+  .filter-controls.open{display:flex;}
+  .filter-controls select, .filter-controls .chip-toggle, .filter-controls .clear-filters{
+    width:100%;box-sizing:border-box;
+  }
+  .filter-controls .filter-spacer{display:none;}
+
+  .cal-col-header{font-size:.66rem;}
 }
 </style>
 </head>
@@ -408,7 +438,8 @@ var state = {
   room: 'all',
   favoritesOnly: false,
   sort: 'schedule',
-  selectedSpeaker: null
+  selectedSpeaker: null,
+  filtersOpen: false
 };
 
 /* ---------- Helpers ---------- */
@@ -1001,43 +1032,60 @@ function uniqueRooms(){
   return Object.keys(set).sort();
 }
 
+function countActiveFilters(){
+  var n = 0;
+  if (state.day !== 'all') n++;
+  if (state.level !== 'all') n++;
+  if (state.format !== 'all') n++;
+  if (state.room !== 'all') n++;
+  if (state.favoritesOnly) n++;
+  return n;
+}
+
 function renderFilterBar(){
   var el = document.getElementById('filterbar');
   if (state.view === 'overview' || state.view === 'timeline'){
     var rooms = uniqueRooms();
     var isTimeline = (state.view === 'timeline');
+    var activeCount = countActiveFilters();
     el.style.display = 'flex';
     el.innerHTML =
-      '<select id="fDay">' +
-        '<option value="all">All days</option>' +
-        '<option value="1">Wed 15 Jul</option>' +
-        '<option value="2">Thu 16 Jul</option>' +
-        '<option value="3">Fri 17 Jul</option>' +
-      '</select>' +
-      '<select id="fLevel">' +
-        '<option value="all">All levels</option>' +
-        '<option value="Beginner">Beginner</option>' +
-        '<option value="Intermediate">Intermediate</option>' +
-        '<option value="Advanced">Advanced</option>' +
-      '</select>' +
-      '<select id="fFormat">' +
-        '<option value="all">All formats</option>' +
-        Object.keys(FMT_LABELS).map(function(k){ return '<option value="'+k+'">'+FMT_LABELS[k]+'</option>'; }).join('') +
-      '</select>' +
-      '<select id="fRoom">' +
-        '<option value="all">All rooms</option>' +
-        rooms.map(function(r){ return '<option value="'+escapeHtml(r)+'">'+escapeHtml(r)+'</option>'; }).join('') +
-      '</select>' +
-      (isTimeline ? '' :
-        '<select id="fSort">' +
-          '<option value="schedule">Sort: Schedule order</option>' +
-          '<option value="title">Sort: Title A–Z</option>' +
-          '<option value="level">Sort: Level</option>' +
-        '</select>'
-      ) +
-      '<label class="chip-toggle"><input type="checkbox" id="fFavOnly"> ⭐ Favorites only</label>' +
-      '<div class="filter-spacer"></div>' +
-      '<button class="clear-filters" id="clearFilters">Clear filters</button>';
+      '<button class="filter-toggle-btn' + (state.filtersOpen ? ' open' : '') + '" id="filterToggleBtn">' +
+        '<span>⚙️ Filters' + (activeCount ? '<span class="filter-count-badge">' + activeCount + '</span>' : '') + '</span>' +
+        '<span class="chev">▾</span>' +
+      '</button>' +
+      '<div class="filter-controls' + (state.filtersOpen ? ' open' : '') + '" id="filterControls">' +
+        '<select id="fDay">' +
+          '<option value="all">All days</option>' +
+          '<option value="1">Wed 15 Jul</option>' +
+          '<option value="2">Thu 16 Jul</option>' +
+          '<option value="3">Fri 17 Jul</option>' +
+        '</select>' +
+        '<select id="fLevel">' +
+          '<option value="all">All levels</option>' +
+          '<option value="Beginner">Beginner</option>' +
+          '<option value="Intermediate">Intermediate</option>' +
+          '<option value="Advanced">Advanced</option>' +
+        '</select>' +
+        '<select id="fFormat">' +
+          '<option value="all">All formats</option>' +
+          Object.keys(FMT_LABELS).map(function(k){ return '<option value="'+k+'">'+FMT_LABELS[k]+'</option>'; }).join('') +
+        '</select>' +
+        '<select id="fRoom">' +
+          '<option value="all">All rooms</option>' +
+          rooms.map(function(r){ return '<option value="'+escapeHtml(r)+'">'+escapeHtml(r)+'</option>'; }).join('') +
+        '</select>' +
+        (isTimeline ? '' :
+          '<select id="fSort">' +
+            '<option value="schedule">Sort: Schedule order</option>' +
+            '<option value="title">Sort: Title A–Z</option>' +
+            '<option value="level">Sort: Level</option>' +
+          '</select>'
+        ) +
+        '<label class="chip-toggle"><input type="checkbox" id="fFavOnly"> ⭐ Favorites only</label>' +
+        '<div class="filter-spacer"></div>' +
+        '<button class="clear-filters" id="clearFilters">Clear filters</button>' +
+      '</div>';
 
     document.getElementById('fDay').value = state.day;
     document.getElementById('fLevel').value = state.level;
@@ -1057,6 +1105,11 @@ function renderFilterBar(){
       state.favoritesOnly=false; state.sort='schedule'; state.query='';
       document.getElementById('searchInput').value='';
       render();
+    };
+    document.getElementById('filterToggleBtn').onclick = function(){
+      state.filtersOpen = !state.filtersOpen;
+      document.getElementById('filterToggleBtn').classList.toggle('open', state.filtersOpen);
+      document.getElementById('filterControls').classList.toggle('open', state.filtersOpen);
     };
   } else {
     el.style.display = 'none';

@@ -3,7 +3,7 @@
 // Bump CACHE_NAME (e.g. to -v2) whenever you redeploy updated content.
 // That forces the old cache to be discarded so visitors pick up the new build
 // instead of being stuck on a stale cached copy.
-const CACHE_NAME = 'europython-2026-v1';
+const CACHE_NAME = 'europython-2026-v2';
 
 const ASSETS = [
   './',
